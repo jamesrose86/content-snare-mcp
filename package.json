@@ -1,0 +1,32 @@
+{
+  "name": "contentsnare-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for the Content Snare API - manage clients, requests, templates, and more",
+  "type": "module",
+  "bin": {
+    "contentsnare-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "mcp",
+    "content-snare",
+    "contentsnare",
+    "model-context-protocol"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
