@@ -39,9 +39,13 @@ npm run build
 
 ## Setup
 
-### 1. Create an API application in Content Snare
+### 1. Enable API access on your Content Snare account
 
-Go to **Settings > API** in your Content Snare account and create a new API application. Set the redirect URI to:
+API access is not enabled by default. Contact Content Snare support at [support@contentsnare.com](mailto:support@contentsnare.com) to request API access for your account.
+
+### 2. Create an API application in Content Snare
+
+Once API access is enabled, go to **Settings > API** in your Content Snare account and create a new API application. Set the redirect URI to:
 
 ```
 http://localhost:8219/callback
@@ -49,7 +53,7 @@ http://localhost:8219/callback
 
 Note down your **Client ID** and **Client Secret**.
 
-### 2. Authorize
+### 3. Authorize
 
 Set your credentials and run the auth command:
 
@@ -64,7 +68,7 @@ This opens your browser to Content Snare's authorization page. After you approve
 
 You only need to do this once. The MCP server handles token refresh automatically.
 
-### 3. Configure your MCP client
+### 4. Configure your MCP client
 
 #### Claude Desktop
 
