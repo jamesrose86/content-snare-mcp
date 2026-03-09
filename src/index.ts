@@ -6,16 +6,12 @@ import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import * as https from "node:https";
-import * as crypto from "node:crypto";
-import { execSync } from "node:child_process";
+import * as readline from "node:readline";
 
 const BASE_URL = "https://api.contentsnare.com/partner_api/v1";
 const OAUTH_BASE = "https://api.contentsnare.com";
 const TOKEN_DIR = path.join(os.homedir(), ".contentsnare");
 const TOKEN_FILE = path.join(TOKEN_DIR, "tokens.json");
-const CALLBACK_PORT = 8219;
-const REDIRECT_URI = `https://localhost:${CALLBACK_PORT}/callback`;
 
 // ---------------------------------------------------------------------------
 // Token storage
@@ -63,7 +59,8 @@ function getClientCredentials(): { clientId: string; clientSecret: string } {
 async function exchangeCodeForTokens(
   code: string,
   clientId: string,
-  clientSecret: string
+  clientSecret: string,
+  redirectUri: string
 ): Promise<StoredTokens> {
   const res = await fetch(`${OAUTH_BASE}/oauth/token`, {
     method: "POST",
@@ -73,7 +70,7 @@ async function exchangeCodeForTokens(
       client_secret: clientSecret,
       code,
       grant_type: "authorization_code",
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri,
     }),
   });
 
@@ -175,7 +172,15 @@ async function getToken(): Promise<string> {
 
 async function runAuthFlow(): Promise<void> {
   const { clientId, clientSecret } = getClientCredentials();
-  const state = crypto.randomBytes(16).toString("hex");
+
+  const redirectUri = process.env.CONTENTSNARE_REDIRECT_URI;
+  if (!redirectUri) {
+    throw new Error(
+      "CONTENTSNARE_REDIRECT_URI environment variable is required for authorization.\n" +
+        "Set it to the redirect URI configured in your Content Snare API application.\n" +
+        "Example: export CONTENTSNARE_REDIRECT_URI=\"https://your-domain.com/callback\""
+    );
+  }
 
   const scopes = [
     "read_clients",
@@ -192,120 +197,48 @@ async function runAuthFlow(): Promise<void> {
   const authUrl =
     `${OAUTH_BASE}/oauth/authorization?` +
     `client_id=${encodeURIComponent(clientId)}&` +
-    `redirect_uri=${encodeURIComponent(REDIRECT_URI)}&` +
+    `redirect_uri=${encodeURIComponent(redirectUri)}&` +
     `scope=${encodeURIComponent(scopes.join(" "))}&` +
     `response_type=code&` +
-    `state=${state}`;
+    `state=auth`;
 
   console.log("\nContent Snare MCP - Authorization\n");
-  console.log("Opening your browser to authorize...\n");
-  console.log("If the browser doesn't open, visit this URL:\n");
+  console.log("1. Open this URL in your browser:\n");
   console.log(authUrl);
-  console.log();
+  console.log("\n2. Approve access in Content Snare.");
+  console.log("3. You will be redirected. Copy the 'code' parameter from the URL bar.");
+  console.log("   (It will look like: " + redirectUri + "?code=XXXXXXXX)\n");
 
-  // Open browser
-  const openCommand =
-    process.platform === "win32"
-      ? "start"
-      : process.platform === "darwin"
-        ? "open"
-        : "xdg-open";
-
-  const { exec } = await import("node:child_process");
-  exec(`${openCommand} "${authUrl}"`);
-
-  // Generate self-signed certificate for HTTPS callback
-  const certDir = path.join(os.tmpdir(), "contentsnare-mcp-certs");
-  fs.mkdirSync(certDir, { recursive: true });
-  const keyFile = path.join(certDir, "key.pem");
-  const certFile = path.join(certDir, "cert.pem");
-
-  execSync(
-    `openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 ` +
-      `-keyout "${keyFile}" -out "${certFile}" -days 1 -nodes ` +
-      `-subj "/CN=localhost"`,
-    { stdio: "ignore" }
-  );
-
-  const tlsKey = fs.readFileSync(keyFile, "utf8");
-  const tlsCert = fs.readFileSync(certFile, "utf8");
-
-  // Clean up cert files
-  try { fs.unlinkSync(keyFile); fs.unlinkSync(certFile); fs.rmdirSync(certDir); } catch {}
-
-  // Start local HTTPS server to receive callback
-  return new Promise((resolve, reject) => {
-    const server = https.createServer(
-      { key: tlsKey, cert: tlsCert },
-      async (req, res) => {
-      try {
-        const url = new URL(req.url!, `https://localhost:${CALLBACK_PORT}`);
-        if (url.pathname !== "/callback") {
-          res.writeHead(404);
-          res.end("Not found");
-          return;
-        }
-
-        const code = url.searchParams.get("code");
-        const returnedState = url.searchParams.get("state");
-
-        if (returnedState !== state) {
-          res.writeHead(400);
-          res.end("State mismatch - possible CSRF attack. Please try again.");
-          server.close();
-          reject(new Error("State mismatch"));
-          return;
-        }
-
-        if (!code) {
-          const error = url.searchParams.get("error") || "No code received";
-          res.writeHead(400);
-          res.end(`Authorization failed: ${error}`);
-          server.close();
-          reject(new Error(error));
-          return;
-        }
-
-        const tokens = await exchangeCodeForTokens(code, clientId, clientSecret);
-        saveTokens(tokens);
-
-        res.writeHead(200, { "Content-Type": "text/html" });
-        res.end(`
-          <!DOCTYPE html>
-          <html>
-            <body style="font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f5f5f5;">
-              <div style="text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <h1 style="color: #703DC1;">Connected!</h1>
-                <p>Content Snare MCP has been authorized successfully.</p>
-                <p style="color: #666;">You can close this tab.</p>
-              </div>
-            </body>
-          </html>
-        `);
-
-        console.log("Authorization successful! Tokens saved to " + TOKEN_FILE);
-        console.log("You can now use the Content Snare MCP server.\n");
-
-        server.close();
-        resolve();
-      } catch (err) {
-        res.writeHead(500);
-        res.end("Internal error");
-        server.close();
-        reject(err);
-      }
-    });
-
-    server.listen(CALLBACK_PORT, () => {
-      console.log(`Waiting for authorization callback on port ${CALLBACK_PORT}...\n`);
-    });
-
-    // Timeout after 5 minutes
-    setTimeout(() => {
-      server.close();
-      reject(new Error("Authorization timed out after 5 minutes. Please try again."));
-    }, 5 * 60 * 1000);
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
   });
+
+  const input = await new Promise<string>((resolve) => {
+    rl.question("Paste the code (or the full redirect URL): ", (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+
+  // Accept either the raw code or the full redirect URL containing ?code=...
+  let code: string;
+  if (input.includes("code=")) {
+    const url = new URL(input);
+    code = url.searchParams.get("code") || "";
+  } else {
+    code = input;
+  }
+
+  if (!code) {
+    throw new Error("No authorization code provided. Please try again.");
+  }
+
+  const tokens = await exchangeCodeForTokens(code, clientId, clientSecret, redirectUri);
+  saveTokens(tokens);
+
+  console.log("\nAuthorization successful! Tokens saved to " + TOKEN_FILE);
+  console.log("You can now use the Content Snare MCP server.\n");
 }
 
 // ---------------------------------------------------------------------------

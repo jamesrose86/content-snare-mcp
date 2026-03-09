@@ -36,7 +36,7 @@ contentsnare-mcp/
 - Single-file server using `@modelcontextprotocol/sdk`
 - Communicates via stdio (standard MCP transport)
 - Auth: OAuth2 with auto-refresh (tokens stored in `~/.contentsnare/tokens.json`), or direct token via `CONTENTSNARE_ACCESS_TOKEN` env var
-- CLI subcommand: `contentsnare-mcp auth` runs browser-based OAuth flow (opens browser, local callback on port 8219)
+- CLI subcommand: `contentsnare-mcp auth` runs manual OAuth flow (prints auth URL, user pastes back the authorization code)
 - Base URL: `https://api.contentsnare.com/partner_api/v1`
 - All tools use a shared `api()` helper for HTTP requests
 

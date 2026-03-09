@@ -45,13 +45,9 @@ API access is not enabled by default. Contact Content Snare support at [support@
 
 ### 2. Create an API application in Content Snare
 
-Once API access is enabled, go to **Settings > API** in your Content Snare account and create a new API application. Set the redirect URI to:
+Once API access is enabled, go to **Settings > API** in your Content Snare account and create a new API application. Set the redirect URI to any HTTPS URL you control (e.g. `https://your-domain.com/callback`). The URL doesn't need to serve anything — you'll just copy the authorization code from the URL bar after redirect.
 
-```
-https://localhost:8219/callback
-```
-
-Note down your **Client ID** and **Client Secret**.
+Note down your **Client ID**, **Client Secret**, and the **Redirect URI** you configured.
 
 ### 3. Authorize
 
@@ -60,13 +56,14 @@ Set your credentials and run the auth command:
 ```bash
 export CONTENTSNARE_CLIENT_ID="your-client-id"
 export CONTENTSNARE_CLIENT_SECRET="your-client-secret"
+export CONTENTSNARE_REDIRECT_URI="https://your-domain.com/callback"
 
 npx contentsnare-mcp auth
 ```
 
-This opens your browser to Content Snare's authorization page. After you approve, tokens are saved to `~/.contentsnare/tokens.json` and automatically refreshed when they expire.
+This prints an authorization URL. Open it in your browser, approve access, then copy the `code` parameter from the redirect URL and paste it back into the terminal.
 
-You only need to do this once. The MCP server handles token refresh automatically.
+Tokens are saved to `~/.contentsnare/tokens.json` and automatically refreshed when they expire. You only need to do this once.
 
 ### 4. Configure your MCP client
 
@@ -128,6 +125,7 @@ Add to your MCP settings:
 |----------|----------|-------------|
 | `CONTENTSNARE_CLIENT_ID` | Yes | OAuth Client ID from your Content Snare API application |
 | `CONTENTSNARE_CLIENT_SECRET` | Yes | OAuth Client Secret from your Content Snare API application |
+| `CONTENTSNARE_REDIRECT_URI` | Auth only | The redirect URI configured in your Content Snare API application (needed for `auth` command) |
 | `CONTENTSNARE_ACCESS_TOKEN` | No | Skip OAuth flow and use a token directly (advanced) |
 
 If `CONTENTSNARE_ACCESS_TOKEN` is set, it takes precedence and the OAuth flow is bypassed. This is useful for testing or if you manage tokens yourself.
