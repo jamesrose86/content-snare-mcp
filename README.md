@@ -48,7 +48,7 @@ API access is not enabled by default. Contact Content Snare support at [support@
 Once API access is enabled, go to **Settings > API** in your Content Snare account and create a new API application. Set the redirect URI to:
 
 ```
-http://localhost:8219/callback
+https://localhost:8219/callback
 ```
 
 Note down your **Client ID** and **Client Secret**.

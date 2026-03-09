@@ -6,15 +6,16 @@ import { z } from "zod";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import * as http from "node:http";
+import * as https from "node:https";
 import * as crypto from "node:crypto";
+import { execSync } from "node:child_process";
 
 const BASE_URL = "https://api.contentsnare.com/partner_api/v1";
 const OAUTH_BASE = "https://api.contentsnare.com";
 const TOKEN_DIR = path.join(os.homedir(), ".contentsnare");
 const TOKEN_FILE = path.join(TOKEN_DIR, "tokens.json");
 const CALLBACK_PORT = 8219;
-const REDIRECT_URI = `http://localhost:${CALLBACK_PORT}/callback`;
+const REDIRECT_URI = `https://localhost:${CALLBACK_PORT}/callback`;
 
 // ---------------------------------------------------------------------------
 // Token storage
@@ -213,11 +214,32 @@ async function runAuthFlow(): Promise<void> {
   const { exec } = await import("node:child_process");
   exec(`${openCommand} "${authUrl}"`);
 
-  // Start local server to receive callback
+  // Generate self-signed certificate for HTTPS callback
+  const certDir = path.join(os.tmpdir(), "contentsnare-mcp-certs");
+  fs.mkdirSync(certDir, { recursive: true });
+  const keyFile = path.join(certDir, "key.pem");
+  const certFile = path.join(certDir, "cert.pem");
+
+  execSync(
+    `openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 ` +
+      `-keyout "${keyFile}" -out "${certFile}" -days 1 -nodes ` +
+      `-subj "/CN=localhost"`,
+    { stdio: "ignore" }
+  );
+
+  const tlsKey = fs.readFileSync(keyFile, "utf8");
+  const tlsCert = fs.readFileSync(certFile, "utf8");
+
+  // Clean up cert files
+  try { fs.unlinkSync(keyFile); fs.unlinkSync(certFile); fs.rmdirSync(certDir); } catch {}
+
+  // Start local HTTPS server to receive callback
   return new Promise((resolve, reject) => {
-    const server = http.createServer(async (req, res) => {
+    const server = https.createServer(
+      { key: tlsKey, cert: tlsCert },
+      async (req, res) => {
       try {
-        const url = new URL(req.url!, `http://localhost:${CALLBACK_PORT}`);
+        const url = new URL(req.url!, `https://localhost:${CALLBACK_PORT}`);
         if (url.pathname !== "/callback") {
           res.writeHead(404);
           res.end("Not found");
