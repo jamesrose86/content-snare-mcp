@@ -9,9 +9,17 @@ This is a TypeScript MCP (Model Context Protocol) server for the Content Snare A
 ```bash
 npm install        # Install dependencies
 npm run build      # Compile TypeScript to dist/
-npm start          # Run the server (requires CONTENTSNARE_ACCESS_TOKEN env var)
+npm start          # Run the MCP server (requires OAuth tokens or CONTENTSNARE_ACCESS_TOKEN)
 npm run dev        # Watch mode for development
 ```
+
+## First-time auth setup
+
+```bash
+CONTENTSNARE_CLIENT_ID=xxx CONTENTSNARE_CLIENT_SECRET=yyy npx contentsnare-mcp auth
+```
+
+This opens a browser for OAuth, saves tokens to `~/.contentsnare/tokens.json`.
 
 ## Project Structure
 
@@ -27,7 +35,8 @@ contentsnare-mcp/
 
 - Single-file server using `@modelcontextprotocol/sdk`
 - Communicates via stdio (standard MCP transport)
-- Auth via `CONTENTSNARE_ACCESS_TOKEN` environment variable (OAuth2 Bearer token)
+- Auth: OAuth2 with auto-refresh (tokens stored in `~/.contentsnare/tokens.json`), or direct token via `CONTENTSNARE_ACCESS_TOKEN` env var
+- CLI subcommand: `contentsnare-mcp auth` runs browser-based OAuth flow (opens browser, local callback on port 8219)
 - Base URL: `https://api.contentsnare.com/partner_api/v1`
 - All tools use a shared `api()` helper for HTTP requests
 

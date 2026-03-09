@@ -13,11 +13,12 @@ An MCP (Model Context Protocol) server that provides AI assistants with full acc
 - **Team Members** - Full CRUD for team members
 - **Webhooks** - Full CRUD with granular event subscriptions
 - **Folders & Schedules** - List folders and communication schedules
+- **OAuth with auto-refresh** - Built-in browser-based OAuth flow with automatic token refresh
 
 ## Prerequisites
 
 - Node.js 18+
-- A Content Snare OAuth2 access token (see [Authorization](#authorization))
+- A Content Snare API application (Client ID and Client Secret)
 
 ## Installation
 
@@ -30,21 +31,42 @@ npm install -g contentsnare-mcp
 ### From source
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/contentsnare-mcp.git
-cd contentsnare-mcp
+git clone https://github.com/jamesrose86/content-snare-mcp.git
+cd content-snare-mcp
 npm install
 npm run build
 ```
 
-## Configuration
+## Setup
 
-Set your Content Snare OAuth2 access token as an environment variable:
+### 1. Create an API application in Content Snare
 
-```bash
-export CONTENTSNARE_ACCESS_TOKEN="your-access-token-here"
+Go to **Settings > API** in your Content Snare account and create a new API application. Set the redirect URI to:
+
+```
+http://localhost:8219/callback
 ```
 
-### Claude Desktop
+Note down your **Client ID** and **Client Secret**.
+
+### 2. Authorize
+
+Set your credentials and run the auth command:
+
+```bash
+export CONTENTSNARE_CLIENT_ID="your-client-id"
+export CONTENTSNARE_CLIENT_SECRET="your-client-secret"
+
+npx contentsnare-mcp auth
+```
+
+This opens your browser to Content Snare's authorization page. After you approve, tokens are saved to `~/.contentsnare/tokens.json` and automatically refreshed when they expire.
+
+You only need to do this once. The MCP server handles token refresh automatically.
+
+### 3. Configure your MCP client
+
+#### Claude Desktop
 
 Add to your `claude_desktop_config.json`:
 
@@ -53,9 +75,10 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "contentsnare": {
       "command": "node",
-      "args": ["/absolute/path/to/contentsnare-mcp/dist/index.js"],
+      "args": ["/absolute/path/to/content-snare-mcp/dist/index.js"],
       "env": {
-        "CONTENTSNARE_ACCESS_TOKEN": "your-access-token-here"
+        "CONTENTSNARE_CLIENT_ID": "your-client-id",
+        "CONTENTSNARE_CLIENT_SECRET": "your-client-secret"
       }
     }
   }
@@ -70,14 +93,15 @@ Or if installed globally via npm:
     "contentsnare": {
       "command": "contentsnare-mcp",
       "env": {
-        "CONTENTSNARE_ACCESS_TOKEN": "your-access-token-here"
+        "CONTENTSNARE_CLIENT_ID": "your-client-id",
+        "CONTENTSNARE_CLIENT_SECRET": "your-client-secret"
       }
     }
   }
 }
 ```
 
-### VS Code / Claude Code
+#### VS Code / Claude Code
 
 Add to your MCP settings:
 
@@ -85,27 +109,28 @@ Add to your MCP settings:
 {
   "contentsnare": {
     "command": "node",
-    "args": ["/absolute/path/to/contentsnare-mcp/dist/index.js"],
+    "args": ["/absolute/path/to/content-snare-mcp/dist/index.js"],
     "env": {
-      "CONTENTSNARE_ACCESS_TOKEN": "your-access-token-here"
+      "CONTENTSNARE_CLIENT_ID": "your-client-id",
+      "CONTENTSNARE_CLIENT_SECRET": "your-client-secret"
     }
   }
 }
 ```
 
-## Authorization
+### Environment Variables
 
-The Content Snare API uses OAuth 2.0. You need to:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CONTENTSNARE_CLIENT_ID` | Yes | OAuth Client ID from your Content Snare API application |
+| `CONTENTSNARE_CLIENT_SECRET` | Yes | OAuth Client Secret from your Content Snare API application |
+| `CONTENTSNARE_ACCESS_TOKEN` | No | Skip OAuth flow and use a token directly (advanced) |
 
-1. Create an API application in Content Snare under **Settings > API**
-2. Complete the OAuth authorization code flow to obtain an access token
-3. Access tokens expire after 2 hours - use the refresh token to obtain new ones
+If `CONTENTSNARE_ACCESS_TOKEN` is set, it takes precedence and the OAuth flow is bypassed. This is useful for testing or if you manage tokens yourself.
 
-See the [Content Snare API docs](https://api.contentsnare.com/partner_api/v1/documentation) for full details on the OAuth flow.
+## Required Scopes
 
-### Required Scopes
-
-Different tools require different OAuth scopes:
+The authorization flow requests all available scopes. Different tools require different scopes:
 
 | Scope | Tools |
 |-------|-------|
